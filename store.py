@@ -13,6 +13,10 @@ class UDPServerMultiClient(udp_server.UDPServer):
         name = data.decode('utf-8')
         if(name[0:-1] == "INVENT"):
             resp = self.get_inventory()
+        elif(name[0:3] == "BUY"):
+            pur_data = name.split(', ')
+            proto, drink, quant = pur_data
+            resp = self.buy_drink(drink, quant, 1)
         else:
             resp = self.get_phone_no(name)
         self.printwt(f'[ REQUEST from {client_address} ]')

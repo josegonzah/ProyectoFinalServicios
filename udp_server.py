@@ -8,6 +8,9 @@ class UDPServer:
         self.host = host    # Host address
         self.port = port    # Host port
         self.sock = None    # Socket
+        ##Información dict es : [Codigo, DNS, u disponibles, precio x unidad]
+        self.invent = {'vodka': [1, 'ru', 100, 72000]} ##Se utiliza como clave el nombre en minuscula del licor por facilidad
+                                                        
 
     def printwt(self, msg):
         ''' Print message with current date and time '''
@@ -52,6 +55,15 @@ class UDPServer:
         self.printwt(f'[ RESPONSE to {client_address} ]')
         self.sock.sendto(resp.encode('utf-8'), client_address)
         print('\n', resp, '\n')
+    def buy_drink(self, drink, quant, creds):
+        # Debemos poner acá la autirización del banco, trabajo futuro
+        drink = drink.lower()
+        if drink in self.invent.keys() and int(quant)<= self.invent[drink][2]:
+            self.invent[drink][2] = self.invent[drink][2] - int(quant)
+            return f"Succesful purchase you got {quant}: {drink}s \n"
+        else:
+            return f"Unsuccesful purchase \n"
+
 
     def wait_for_client(self):
         ''' Wait for a client '''
