@@ -1,9 +1,9 @@
 import socket
 import threading
 import time
-import udp_server
+import bank_server
 from datetime import datetime
-class UDPServerMultiClient(udp_server.UDPServer):
+class UDPServerMultiClientBank(bank_server.BankServer):
     def __init__(self, host, port):
         super().__init__(host, port)
         self.socket_lock = threading.Lock()
@@ -11,12 +11,14 @@ class UDPServerMultiClient(udp_server.UDPServer):
         ''' Handle the client '''
         # handle request
         name = data.decode('utf-8')
-        if(name[0:-1] == "INVENT"):
-            resp = self.get_invent()
-        elif(name[0:3] == "BUY"):
+        if(name[0:3] == "DEP"):
             pur_data = name.split(', ')
-            proto, drink, quant, acc_num, passw = pur_data
-            resp = self.buy_drink(drink, quant, (acc_num, passw))
+            proto, acc_num, passw, amount = pur_data
+            resp = self.deposit(acc_num, passw, amount)
+        elif(name[0:3] == "WIT"):
+            pur_data = name.split(', ')
+            proto, acc_num, passw, amount = pur_data
+            resp = self.withdraw(acc_num, passw, amount)
         else:
             resp = self.get_phone_no(name)
         self.printwt(f'[ REQUEST from {client_address} ]')
@@ -56,8 +58,8 @@ class UDPServerMultiClient(udp_server.UDPServer):
 
 def main():
     ''' Create a UDP Server and handle multiple clients simultaneously '''
-    udp_server_multi_client = UDPServerMultiClient('127.0.0.1', 4444)
-    udp_server_multi_client.configure_server()
-    udp_server_multi_client.wait_for_client()
+    udp_server_multi_client_bank = UDPServerMultiClientBank('127.0.0.2', 5555)
+    udp_server_multi_client_bank.configure_server()
+    udp_server_multi_client_bank.wait_for_client()
 if __name__ == '__main__':
     main()

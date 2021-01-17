@@ -1,9 +1,9 @@
 import socket
 import threading
-msgFromClient="Hello UDP Server"
+msgFromClient="BUY, vodka, 1, 123456, 1234"
 bytesToSend=str.encode(msgFromClient)
 bufferSize          = 1024
-serverAddressPort   = ("127.0.0.1", 5050)
+serverAddressPort   = ("127.0.0.2", 5555)
 def Connect2Server():
     UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     UDPClientSocket.sendto(bytesToSend, serverAddressPort)

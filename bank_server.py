@@ -1,15 +1,15 @@
 import socket
 from datetime import datetime
 
-class UDPServer:
+class BankServer:
     ''' A simple UDP Server '''
 
     def __init__(self, host, port):
         self.host = host    # Host address
         self.port = port    # Host port
         self.sock = None    # Socket
-        ##Información dict es : [Codigo, DNS, u disponibles, precio x unidad]
-        self.invent = {'vodka': [1, 'ru', 100, 72000]} ##Se utiliza como clave el nombre en minuscula del licor por facilidad
+        ##Información dict es : [Nombre, contraseña, saldo]
+        self.users  = {'123456': ['Pepito Perez', 1234, 500000]} ##Se utiliza como clave el numero de cuenta por unicidad
                                                         
 
     def printwt(self, msg):
@@ -39,8 +39,6 @@ class UDPServer:
             if i == name[0:-1]:
                 return f"{name[0:-1]}'s phone number is {phonebook[name[0:-1]]}"
         return f"No records found for {name[0:-1]}"
-    def get_inventory(self):
-        return f"Inventory: {self.inventory}"
     def handle_request(self, data, client_address):
         ''' Handle the client '''
 
@@ -54,25 +52,24 @@ class UDPServer:
         self.printwt(f'[ RESPONSE to {client_address} ]')
         self.sock.sendto(resp.encode('utf-8'), client_address)
         print('\n', resp, '\n')
-    def buy_drink(self, drink, quant, creds):
-        # Se esta haciendo la conexion con el servidor banco
-        drink = drink.lower()
-        msgFromClient="WIT, "+str(creds[0])+", "+str(creds[1])[0:-1]+", "+str(self.invent[drink][3])+"\n"
-        print(msgFromClient)
-        bytesToSend = str.encode(msgFromClient)
-        bufferSize          = 1024
-        serverAddressPort   = ("127.0.0.2", 5555)
-        UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        UDPClientSocket.sendto(bytesToSend, serverAddressPort)
-        msgFromServer = UDPClientSocket.recvfrom(bufferSize)
-        msg = "Message from Bank {}".format(msgFromServer[0])
-        print(msg)
-        if drink in self.invent.keys() and int(quant)<= self.invent[drink][2]:
-            self.invent[drink][2] = self.invent[drink][2] - int(quant)
-            return f"Succesful purchase you got {quant}: {drink}s \n"
+    def deposit(self, acc_number, password, amount):
+        acc_number = acc_number.lower()
+        if acc_number in self.users.keys() and int(password) == self.users[acc_number][1]:
+            self.users[acc_number][2] = self.users[acc_number][2] + int(amount)
+            return f"Succesful deposit {self.users[acc_number][0]}, you got in your account: ${self.users[acc_number][2]}  \n"
         else:
-            return f"Unsuccesful purchase \n"
+            return f"Invalid combination, check account number or password \n"
 
+    def withdraw(self, acc_number, password, amount):
+        acc_number = acc_number.lower()
+        if acc_number in self.users.keys() and int(password) == self.users[acc_number][1]:
+            if int(amount) <= self.users[acc_number][2]:
+                self.users[acc_number][2] = self.users[acc_number][2] - int(amount)
+                return f"Succesful withdrawal {self.users[acc_number][0]}, you got in your account: ${self.users[acc_number][2]}  \n"
+            else:
+                return f"You don't have enough funds to do this transaction. You got in your account: ${self.users[acc_number][2]} \n"
+        else:
+            return f"Invalid combination, check account number or password \n"
 
     def wait_for_client(self):
         ''' Wait for a client '''
@@ -96,7 +93,7 @@ class UDPServer:
 def main():
     ''' Create a UDP Server and respond to a client's resquest '''
 
-    udp_server = UDPServer('127.0.0.1', 4444)
+    udp_server = UDPServer('127.0.0.2', 5555)
     udp_server.configure_server()
     udp_server.wait_for_client()
     udp_server.shutdown_server()
