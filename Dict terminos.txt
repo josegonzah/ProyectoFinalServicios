@@ -1,0 +1,13 @@
+Protocolo en tienda:
+BUY, liquor, cant
+INVENT
+Luego de BUY hay autenticacion
+CC, Passw
+
+Protocolo en banco:
+DEP, CC, passw, money
+WIT, CC, passw, money
+CONSUL, CC, passw
+Se debe de autenicar antes de hacer cada operación
+
+Ip se pasa al iniciar cada servicio
