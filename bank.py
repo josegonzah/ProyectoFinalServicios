@@ -1,65 +1,85 @@
-import socket
-import threading
-import time
-import bank_server
-from datetime import datetime
-class UDPServerMultiClientBank(bank_server.BankServer):
-    def __init__(self, host, port):
-        super().__init__(host, port)
-        self.socket_lock = threading.Lock()
-    def handle_request(self, data, client_address):
-        ''' Handle the client '''
-        # handle request
-        name = data.decode('utf-8')
-        if(name[0:3] == "DEP"):
-            pur_data = name.split(', ')
-            proto, acc_num, passw, amount = pur_data
-            resp = self.deposit(acc_num, passw, amount)
-        elif(name[0:3] == "WIT"):
-            pur_data = name.split(', ')
-            proto, acc_num, passw, amount = pur_data
-            resp = self.withdraw(acc_num, passw, amount)
-        else:
-            resp = self.get_phone_no(name)
-        self.printwt(f'[ REQUEST from {client_address} ]')
-        print('\n', name, '\n')
-        # send response to the client
-        self.printwt(f'[ RESPONSE to {client_address} ]')
-        with self.socket_lock:
-            self.sock.sendto(resp.encode('utf-8'), client_address)
-        print('\n', resp, '\n')
-    def wait_for_client(self):
-        clients = dict()
-        ''' Wait for clients and handle their requests '''
+from socketserver import ThreadingTCPServer, BaseRequestHandler
+from sys import argv, exit
+
+if len(argv) != 2:
+    print("Hey, deme la IP solamente")
+    exit(1)
+
+ip = str(argv[1])
+users = {'123456': ["pepito perez", 1234, 60000000]}
+
+class bank_handler(BaseRequestHandler):
+    def handle(self):
+        global users
+        print(f'Conneting with client {self.client_address}')
+        while True:
+            data = self.request.recv(1024).decode()
+            if(data[0:3] == "DEP"):
+                proto, cc, passw, money = data.split(", ")
+                self.deposit(cc, int(passw), int(money))
+            elif(data[0:3] == "WIT"):
+                proto, cc, passw, money = data.split(", ")
+                self.withdraw(cc, int(passw), int(money))
+            elif(data[0:6] == "CONSUL"):
+                proto, cc, passw = data.split(", ")
+                self.consul(cc, int(passw))
+            elif(data[0:3] == "BYE"):
+                self.request.close()
+                return None
+            else:
+                data = "Orden invalida\n".encode()
+                self.request.send(data)
+    def deposit(self, cc, passw, money):
         try:
-            while True: # keep alive
+            if(cc in users.keys()):
+                if(passw == users[cc][1]):
+                    users[cc][2] += money
+                    data = "Consignacion exitosa \n".encode("utf-8")
+                    self.request.send(data)
+                else:
+                    data = "Contrasena incorrecta \n".encode("utf-8")
+                    self.request.send(data)
+            else:
+                data = "Usuario no encontrado \n".encode("utf-8")
+                self.request.send(data)
+        except:
+            data = "Consignacion fallida \n".encode("utf-8")
+            self.request.send(data)
 
-                try: # receive request from client
-                    data, client_address = self.sock.recvfrom(1024)
-                    c_thread = threading.Thread(target = self.handle_request, args = (data, client_address))
-                    c_thread.daemon = True
-                    c_thread.start()
-                    flag = 0
-                    for addr in clients.keys():
-                        if clients[addr] < (time.time() - 10):
-                            print('Nothing from ',addr,' for a while. Kicking them off.')
-                            flag = 1
-                    if flag:
-                        clients.pop(addr)
-                    
-                    print(clients.keys())
-                    clients[client_address] = time.time()
-                    print("There are ", len(clients.keys()), " people connected")
-                except OSError as err:
-                    self.printwt(err)
+    def withdraw(self, cc, passw, money):
+        try:
+            if(cc in users.keys()):
+                if(passw == users[cc][1]):
+                    if(money <= users[cc][2]):
+                        users[cc][2] -= money
+                        data = "Retiro exitoso \n".encode("utf-8")
+                        self.request.send(data)
+                    else:
+                        data = "No posee fondos suficientes \n".encode("utf-8")
+                        self.request.send(data)
+                else:
+                    data = "Contrasena incorrecta \n".encode("utf-8")
+                    self.request.send(data)
+            else:
+                data = "Usuario no encontrado \n".encode("utf-8")
+                self.request.send(data)
+        except:
+            data = "Consignacion fallida \n".encode("utf-8")
+            self.request.send(data)
 
-        except KeyboardInterrupt:
-            self.shutdown_server()
 
-def main():
-    ''' Create a UDP Server and handle multiple clients simultaneously '''
-    udp_server_multi_client_bank = UDPServerMultiClientBank('127.0.0.2', 5555)
-    udp_server_multi_client_bank.configure_server()
-    udp_server_multi_client_bank.wait_for_client()
-if __name__ == '__main__':
-    main()
+    def consul(self, cc, passw):
+        if(str(cc) in users.keys()):
+            if(passw == users[cc][1]):
+                string = users[cc][0] + " su saldo es de: " + str(users[cc][2]) + "\n"
+                data = string.encode("utf-8")
+                self.request.send(data)
+            else:
+                data = "Contrasena invalida \n".encode("utf-8")
+                self.request.send(data)
+        else:
+            data = "Usuario no registrado \n".encode("utf-8")
+            self.request.send(data)
+
+myserver = ThreadingTCPServer((ip, 5668), bank_handler)
+myserver.serve_forever()

@@ -1,63 +1,75 @@
-import socket
-import threading
-import time
-import udp_server
-from datetime import datetime
-class UDPServerMultiClient(udp_server.UDPServer):
-    def __init__(self, host, port):
-        super().__init__(host, port)
-        self.socket_lock = threading.Lock()
-    def handle_request(self, data, client_address):
-        ''' Handle the client '''
-        # handle request
-        name = data.decode('utf-8')
-        if(name[0:-1] == "INVENT"):
-            resp = self.get_invent()
-        elif(name[0:3] == "BUY"):
-            pur_data = name.split(', ')
-            proto, drink, quant, acc_num, passw = pur_data
-            resp = self.buy_drink(drink, quant, (acc_num, passw))
+from socketserver import ThreadingTCPServer, BaseRequestHandler
+from udp_liquor import udpconect
+from sys import argv, exit
+
+
+if len(argv) != 2:
+    print("Hey, deme la ip pues")
+    exit(1)
+
+ip = str(argv[1])
+users = 0
+inventory = {'vodka': [1, 'ru', 100, 72000]}
+
+class handler_liquor(BaseRequestHandler):
+    def handle(self):
+        global users
+        global inventory
+        
+        print(f'Conneting with client {self.client_address}')
+        
+        users += 1
+        while True:
+            data = self.request.recv(1024).decode('utf-8')
+            ##Se utiliza el split para saber que se hará en la cadena de caracteres
+            print(data)
+            if data[0:6] == "INVENT":
+                self.print_invent()
+            elif data[0:3] == "BUY":
+                proto, liquor, quant = data.split(", ")
+                self.buy(liquor, quant[0:-1])
+            elif data[0:3] == "BYE":
+                self.request.close()
+                return None
+            else:
+                
+                data = 'Solo tenemos estas dos acciones \n'.encode("utf-8")
+                self.request.send(data)
+                
+        self.request.close()
+        users -= 1
+
+    def print_invent(self):
+        data = ("Usuarios en linea: " + str(users) + "\n").encode("utf-8")
+        self.request.send(data)
+        for i in inventory.keys():
+            data = (i) + ". Cantidad: " + str(inventory[i][2]) + ". Precio por unidad: " + str(inventory[i][3])+ "\n"
+            data = data.encode("utf-8")
+            self.request.send(data)
+
+
+    
+    def buy(self, liquor, quant):
+        if(liquor in inventory.keys() and int(quant) <= inventory[liquor][2]):
+            data = "Ingrese su numero de cedula y su contraseña para pagar, separados por , \n".encode("utf-8")
+            self.request.send(data)
+            data = self.request.recv(1024).decode("utf-8")
+            data = data[0:-1]
+            cc, passw = data.split(", ")
+            ##Conexion UDP
+            money = int(inventory[liquor][3])*(int(quant))
+            flag = udpconect(str(cc), str(passw), str(money), ip)
+            if flag:
+                inventory[liquor][2] -= int(quant)
+                data = "Compra exitosa \n".encode("utf-8")
+                self.request.send(data)
+            else:
+                data = "Compra denegada \n".encode("utf-8")
+                self.request.send(data)
         else:
-            resp = self.get_phone_no(name)
-        self.printwt(f'[ REQUEST from {client_address} ]')
-        print('\n', name, '\n')
-        # send response to the client
-        self.printwt(f'[ RESPONSE to {client_address} ]')
-        with self.socket_lock:
-            self.sock.sendto(resp.encode('utf-8'), client_address)
-        print('\n', resp, '\n')
-    def wait_for_client(self):
-        clients = dict()
-        ''' Wait for clients and handle their requests '''
-        try:
-            while True: # keep alive
+            data = "Error en inventario, no hay esta cantidad de licor en stock \n"
+            self.request.send(data)
+    
 
-                try: # receive request from client
-                    data, client_address = self.sock.recvfrom(1024)
-                    c_thread = threading.Thread(target = self.handle_request, args = (data, client_address))
-                    c_thread.daemon = True
-                    c_thread.start()
-                    flag = 0
-                    for addr in clients.keys():
-                        if clients[addr] < (time.time() - 10):
-                            print('Nothing from ',addr,' for a while. Kicking them off.')
-                            flag = 1
-                    if flag:
-                        clients.pop(addr)
-                    
-                    print(clients.keys())
-                    clients[client_address] = time.time()
-                    print("There are ", len(clients.keys()), " people connected")
-                except OSError as err:
-                    self.printwt(err)
-
-        except KeyboardInterrupt:
-            self.shutdown_server()
-
-def main():
-    ''' Create a UDP Server and handle multiple clients simultaneously '''
-    udp_server_multi_client = UDPServerMultiClient('127.0.0.1', 4444)
-    udp_server_multi_client.configure_server()
-    udp_server_multi_client.wait_for_client()
-if __name__ == '__main__':
-    main()
+myserver = ThreadingTCPServer((ip, 5555), handler_liquor)
+myserver.serve_forever()
