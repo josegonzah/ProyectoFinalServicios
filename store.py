@@ -9,15 +9,15 @@ if len(argv) != 2:
 
 ip = str(argv[1])
 users = 0
-inventory = {'vodka': [1, 'ru', 100, 72000]}
+inventory = {'vodka': [1, 'ru', 100, 72000], 'ron': [2, 'co', 70, 46400], 'aguadiente': [3, 'co', 80, 36800], 'Whisky': [4, 'uk', 200, 125000], 'tequila': [5, 'mx', 37, 95000]}
 
 class handler_liquor(BaseRequestHandler):
     def handle(self):
         global users
         global inventory
-        
+
         print(f'Conneting with client {self.client_address}')
-        
+
         users += 1
         while True:
             data = self.request.recv(1024).decode('utf-8')
